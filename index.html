@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Piano – akordy k písničkám</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#eef1f7; --panel:#ffffff; --fg:#1d2a4a; --muted:#5b6782; --line:#d5dcea;
+  --dur:#1f5fbf; --moll:#7a3db8; --accent:#1f5fbf; --err:#c0392b; --ok:#1e8a4c; --field:#f7f9fd;
+  --display:"Bricolage Grotesque","Figtree",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#121726; --panel:#1b2236; --fg:#e7ecf7; --muted:#9aa6c2; --line:#2e3852;
+  --dur:#5b93f0; --moll:#a87ae0; --accent:#6aa0f5; --err:#ef7b6c; --ok:#4cc483; --field:#151b2c; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding:20px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-family:var(--display);font-weight:800;font-size:28px;margin:0}
+.lead{color:var(--muted);margin:2px 0 0}
+.tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px}
+.tab{border:0;background:transparent;padding:9px 16px;border-radius:9px;font-weight:700;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--accent);color:#fff}
+.count{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:10px;background:rgba(127,140,170,.25);font-size:12px}
+.tab[aria-selected="true"] .count{background:rgba(255,255,255,.25)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:24px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+label.lbl{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+input[type=text],input[type=password],input[type=search],select{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#title{font-family:var(--display);font-weight:700;font-size:20px}
+.sections{display:flex;flex-direction:column;gap:12px}
+.sec{border:1px solid var(--line);border-radius:11px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.sec-head{display:flex;gap:8px;align-items:center}
+.sec-head input{flex:1;min-width:0;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-weight:700;font-size:13px;color:#fff;border-radius:6px;padding:3px 9px}
+.chip.dur{background:var(--dur)} .chip.moll{background:var(--moll)}
+.chip.bad{background:transparent;color:var(--err);border:1.5px dashed var(--err)}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:9px;border:1px solid var(--line);background:var(--field);color:var(--fg);padding:9px 14px}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.big{font-size:16px;padding:12px 18px}
+button.icon{padding:8px 11px;color:var(--muted)}
+button.danger{color:var(--err)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.opt{display:flex;gap:8px;align-items:center;font-size:14px}
+.sheet-col{display:flex;flex-direction:column;gap:12px;position:sticky;top:12px}
+@media (max-width:900px){.sheet-col{position:static}}
+canvas#sheet{width:100%;height:auto;aspect-ratio:210/297;background:#fff;border-radius:6px;box-shadow:0 1px 2px rgba(20,30,60,.12),0 8px 28px rgba(20,30,60,.14)}
+.status{font-size:14px;color:var(--muted);min-height:20px}
+.status.err{color:var(--err)} .status.ok{color:var(--ok)}
+details summary{cursor:pointer;font-weight:600}
+details p{margin:6px 0;color:var(--muted);font-size:14px}
+code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--field);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.editing{font-size:13px;color:var(--muted)}
+/* songs */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.toolbar input{flex:1;min-width:200px;width:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card h3{font-family:var(--display);font-weight:800;font-size:20px;margin:0;overflow-wrap:anywhere}
+.card .meta{font-size:12px;color:var(--muted)}
+.card .part{display:flex;gap:8px;align-items:flex-start}
+.card .part b{font-size:12px;color:var(--muted);min-width:56px;padding-top:3px;overflow-wrap:anywhere}
+.card .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:4px}
+.card .actions button{padding:7px 11px;font-size:14px}
+.empty{background:var(--panel);border:1px dashed var(--line);border-radius:14px;padding:30px;text-align:center;color:var(--muted)}
+.db{margin-top:22px}
+.db .panel{gap:12px}
+.dbstate{display:flex;align-items:center;gap:8px;font-weight:600}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.dot.on{background:var(--ok)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+@media (max-width:600px){.two{grid-template-columns:minmax(0,1fr)}}
+.small{font-size:13px;color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Piano – akordy k písničkám</h1>
+      <p class="lead">Napiš akordy, ulož písničku a stáhni si PDF k tisku.</p>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabEditor" aria-selected="true" type="button">Editor</button>
+      <button class="tab" role="tab" id="tabSongs" aria-selected="false" type="button">Moje písničky<span class="count" id="songCount">0</span></button>
+    </div>
+  </header>
+
+  <!-- ============ EDITOR ============ -->
+  <section id="viewEditor">
+    <div class="grid">
+      <div class="panel">
+        <div>
+          <label class="lbl" for="title">Název písně</label>
+          <input type="text" id="title" autocomplete="off">
+          <div class="editing" id="editing"></div>
+        </div>
+        <div>
+          <label class="lbl">Části písně a akordy</label>
+          <div class="sections" id="sections"></div>
+        </div>
+        <div class="row">
+          <button id="addSec" type="button">+ Přidat část</button>
+          <button id="addRef" type="button">+ Refrén</button>
+        </div>
+        <label class="opt"><input type="checkbox" id="unique"> Hmaty ukázat jen jednou (když je akordů hodně)</label>
+        <details>
+          <summary>Jak psát akordy</summary>
+          <p>Akordy odděl mezerou nebo čárkou: <code>Ami G Dmi F</code></p>
+          <p>Dur: <code>C</code>, <code>F#</code>. Moll: <code>Ami</code>, <code>Am</code>, <code>Amol</code>.</p>
+          <p>Další: <code>G7</code>, <code>Ami7</code>, <code>Cmaj7</code>, <code>Hdim</code>, <code>Caug</code>, <code>Dsus4</code>, <code>Dsus2</code>. <code>B</code> je české B (A#), <code>H</code> je H.</p>
+        </details>
+        <div class="row">
+          <button class="primary big" id="saveSong" type="button">Uložit písničku</button>
+          <button id="newSong" type="button">Nová písnička</button>
+        </div>
+        <div class="status" id="editStatus"></div>
+      </div>
+
+      <div class="sheet-col">
+        <canvas id="sheet" width="840" height="1188" aria-label="Náhled stránky A4"></canvas>
+        <button class="primary big" id="pdf" type="button">Stáhnout PDF k tisku (A4)</button>
+        <div class="status" id="pdfStatus">Při tisku zvol „Skutečná velikost“ nebo 100 %.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SONGS ============ -->
+  <section id="viewSongs" hidden>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Hledat písničku…" aria-label="Hledat písničku">
+      <button class="primary" id="newSong2" type="button">+ Nová písnička</button>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="empty" id="empty" hidden>Zatím tu nejsou žádné písničky. V Editoru napiš akordy a klikni na <b>Uložit písničku</b>.</div>
+
+    <div class="db">
+      <div class="panel">
+        <div class="dbstate"><span class="dot" id="dbDot"></span><span id="dbText">Databáze: jen v tomto prohlížeči</span></div>
+        <div class="small" id="dbHint">Písničky se ukládají do souboru JSON. Když připojíš JSONBin.io, budou stejné na všech zařízeních.</div>
+        <details id="dbDetails">
+          <summary>Nastavení databáze JSONBin.io</summary>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+            <div class="two">
+              <div>
+                <label class="lbl" for="jbKey">Klíč (API Key)</label>
+                <input type="password" id="jbKey" autocomplete="off" placeholder="$2a$10$…">
+              </div>
+              <div>
+                <label class="lbl" for="jbType">Typ klíče</label>
+                <select id="jbType"><option value="access">Access Key</option><option value="master">Master Key</option></select>
+              </div>
+            </div>
+            <div>
+              <label class="lbl" for="jbBin">Bin ID (nech prázdné – vytvoří se nová databáze)</label>
+              <input type="text" id="jbBin" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="row">
+              <button class="primary" id="jbConnect" type="button">Připojit</button>
+              <button id="jbDisconnect" type="button">Odpojit</button>
+            </div>
+            <div class="small">Klíč se uloží jen v tomto prohlížeči, v souboru na GitHubu není. Na dalším zařízení zadej stejný klíč a Bin ID.</div>
+          </div>
+        </details>
+        <div class="row">
+          <button id="exportJson" type="button">Stáhnout zálohu (JSON)</button>
+          <label class="opt" style="cursor:pointer"><button type="button" id="importBtn">Nahrát zálohu (JSON)</button><input type="file" id="importFile" accept=".json,application/json" hidden></label>
+        </div>
+        <div class="status" id="dbStatus"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ================= hudba ================= */
+const NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','H'];
+const WHITE=[0,2,4,5,7,9,11];
+const ROOT={C:0,D:2,E:4,F:5,G:7,A:9,H:11,B:10};
+const TYPES=[
+  [/^(maj7|M7)$/,[0,4,7,11],false,'maj7'],
+  [/^(mi7|m7|moll7|min7)$/,[0,3,7,10],true,'mi7'],
+  [/^7$/,[0,4,7,10],false,'7'],
+  [/^(mi|m|moll|min|-)$/,[0,3,7],true,'mi'],
+  [/^(dim|o)$/,[0,3,6],true,'dim'],
+  [/^(aug|\+)$/,[0,4,8],false,'aug'],
+  [/^sus4$/,[0,5,7],false,'sus4'],
+  [/^sus2$/,[0,2,7],false,'sus2'],
+  [/^(dur|maj|)$/,[0,4,7],false,''],
+];
+function parseChord(raw){
+  const t=raw.trim(); if(!t) return null;
+  const m=t.match(/^([A-Ha-h])(#|b|is|es)?(.*)$/);
+  if(!m) return {raw:t,bad:true};
+  const L=m[1].toUpperCase(), acc=m[2]||'', suf=m[3];
+  let r=ROOT[L]; if(acc==='#'||acc==='is') r+=1; if(acc==='b'||acc==='es') r-=1; r=(r+12)%12;
+  for(const [re,ints,minor,label] of TYPES){
+    if(re.test(suf)) return {raw:t,name:(L==='B'&&!acc?'B':NAMES[r])+label,notes:ints.map(i=>r+i),minor};
+  }
+  return {raw:t,bad:true};
+}
+const splitChords=s=>(s||'').split(/[\s,;|\/]+/).filter(t=>t&&t!=='-'&&t!=='–');
+
+/* ================= pomocné ================= */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const clone=o=>JSON.parse(JSON.stringify(o));
+function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+function setStatus(id,t,kind){const s=$(id);s.textContent=t||'';s.className='status'+(kind?' '+kind:'')}
+function fmtDate(ts){try{return new Date(ts).toLocaleString('cs-CZ',{day:'numeric',month:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
+function saveFile(name,blob){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000)}
+const safeName=s=>((s||'').trim().replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,' ')||'akordy');
+
+/* ================= databáze (JSON) =================
+   Struktura: { version:1, songs:[ {id,title,unique,sections:[{name,chords}],created,updated} ] }
+   Úložiště: JSONBin.io (když je připojen), jinak localStorage tohoto prohlížeče. */
+// ===== NASTAVENÍ JSONBin.io (napevno – návštěvníci nic nezadávají) =====
+const FIXED_KEY='';        // Access Key s právy Read + Update na bin níže
+const FIXED_KEY_TYPE='access'; // 'access' nebo 'master'
+const FIXED_BIN='';        // Bin ID databáze písniček
+const API='https://api.jsonbin.io/v3/b';
+const LS_DB='piano_db', LS_CFG='piano_jsonbin', LS_DRAFT='piano_draft';
+let db=lsGet(LS_DB)||{version:1,songs:[]};
+if(!Array.isArray(db.songs)) db={version:1,songs:[]};
+const FIXED=!!(FIXED_KEY&&FIXED_BIN);
+let cfg=FIXED?{key:FIXED_KEY,type:FIXED_KEY_TYPE,bin:FIXED_BIN}:lsGet(LS_CFG); // {key,type,bin}
+let saving=false, pending=false;
+const deleted=new Set(); // id smazaných písniček (aby se při slučování nevrátily)
+
+async function jb(method,path,body){
+  const h={'Content-Type':'application/json'};
+  h[cfg.type==='master'?'X-Master-Key':'X-Access-Key']=cfg.key;
+  if(method==='GET') h['X-Bin-Meta']='false';
+  if(method==='POST'){h['X-Bin-Name']='piano-pisnicky';h['X-Bin-Private']='true'}
+  let r; try{r=await fetch(API+path,{method,headers:h,body:body?JSON.stringify(body):undefined})}
+  catch(e){throw new Error('Nelze se spojit s JSONBin.io')}
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.message||('Chyba '+r.status));
+  return j;
+}
+async function persist(){
+  lsSet(LS_DB,db);
+  if(!cfg) return true;
+  if(saving){pending=true;return true}
+  saving=true; setStatus('dbStatus','Ukládám do JSONBin…');
+  try{
+    // sloučit s tím, co mezitím uložili ostatní
+    try{const remote=await loadRemote();db={version:1,songs:mergeSongs(remote.songs.filter(s=>!deleted.has(s.id)),db.songs).filter(s=>!deleted.has(s.id))};lsSet(LS_DB,db)}catch(e){}
+    await jb('PUT','/'+cfg.bin,db);setStatus('dbStatus','Uloženo do JSONBin.','ok');return true}
+  catch(e){setStatus('dbStatus','Do JSONBin se nepodařilo uložit: '+e.message+'. Písnička zůstala uložená v tomto prohlížeči.','err');return false}
+  finally{saving=false;if(pending){pending=false;persist()}}
+}
+async function loadRemote(){
+  const j=await jb('GET','/'+cfg.bin+'/latest');
+  const rec=j&&j.record?j.record:j;
+  if(!rec||!Array.isArray(rec.songs)) return {version:1,songs:[]};
+  return rec;
+}
+function mergeSongs(a,b){ // podle id, novější vyhrává
+  const m=new Map(); [...a,...b].forEach(s=>{const o=m.get(s.id);if(!o||(s.updated||0)>(o.updated||0))m.set(s.id,s)});
+  return [...m.values()];
+}
+async function connect(key,type,bin){
+  cfg={key,type,bin};
+  setStatus('dbStatus','Připojuji…');
+  try{
+    if(!bin){
+      const j=await jb('POST','',db); cfg.bin=j.metadata.id;
+    }else{
+      const remote=await loadRemote();
+      const merged=mergeSongs(remote.songs,db.songs);
+      const changed=merged.length!==remote.songs.length||merged.some(s=>!remote.songs.find(r=>r.id===s.id&&(r.updated||0)===(s.updated||0)));
+      db={version:1,songs:merged};
+      if(changed) await jb('PUT','/'+cfg.bin,db);
+    }
+    lsSet(LS_CFG,cfg); lsSet(LS_DB,db);
+    setStatus('dbStatus','Připojeno. Bin ID: '+cfg.bin+' – zapiš si ho pro další zařízení.','ok');
+  }catch(e){
+    cfg=null; setStatus('dbStatus','Připojení se nepodařilo: '+e.message,'err');
+  }
+  renderDb(); renderSongs();
+}
+function renderDb(){
+  if(FIXED){
+    $('dbDetails').hidden=true; $('dbHint').hidden=true;
+    $('dbDot').classList.add('on'); $('dbText').textContent='Písničky jsou sdílené – vidí je všichni, kdo mají odkaz.';
+    return;
+  }
+  $('dbDot').classList.toggle('on',!!cfg);
+  $('dbText').textContent=cfg?'Databáze: JSONBin.io (Bin ID '+cfg.bin+')':'Databáze: jen v tomto prohlížeči';
+  $('jbDisconnect').disabled=!cfg;
+  if(cfg){$('jbType').value=cfg.type;$('jbBin').value=cfg.bin;$('jbKey').value=cfg.key}
+}
+$('jbConnect').addEventListener('click',()=>{
+  const key=$('jbKey').value.trim(); if(!key){setStatus('dbStatus','Vlož klíč z JSONBin.io (API Keys).','err');return}
+  connect(key,$('jbType').value,$('jbBin').value.trim());
+});
+$('jbDisconnect').addEventListener('click',()=>{cfg=null;lsDel(LS_CFG);$('jbKey').value='';renderDb();setStatus('dbStatus','Odpojeno. Písničky zůstaly v tomto prohlížeči.')});
+$('exportJson').addEventListener('click',()=>{
+  saveFile('piano-pisnicky-'+new Date().toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));
+});
+$('importBtn').addEventListener('click',()=>$('importFile').click());
+$('importFile').addEventListener('change',async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{
+    const data=JSON.parse(await f.text());
+    const songs=Array.isArray(data)?data:data.songs;
+    if(!Array.isArray(songs)) throw new Error('V souboru nejsou písničky.');
+    const clean=songs.filter(s=>s&&Array.isArray(s.sections)).map(s=>({id:s.id||uid(),title:String(s.title||'Bez názvu'),unique:!!s.unique,sections:s.sections.map(x=>({name:String(x.name||''),chords:String(x.chords||'')})),created:s.created||Date.now(),updated:s.updated||Date.now()}));
+    db.songs=mergeSongs(db.songs,clean); await persist(); renderSongs();
+    setStatus('dbStatus','Nahráno písniček: '+clean.length+'.','ok');
+  }catch(err){setStatus('dbStatus','Zálohu se nepodařilo nahrát: '+err.message,'err')}
+});
+
+/* ================= editor ================= */
+const EXAMPLE={id:null,title:'Barák na odstřel',unique:false,sections:[{name:'Sloka',chords:'Ami G Dmi F'},{name:'Refrén',chords:'F C G Dmi'}]};
+let state=lsGet(LS_DRAFT)||clone(EXAMPLE);
+const secBox=$('sections');
+
+function renderEditor(){
+  $('title').value=state.title||''; $('unique').checked=!!state.unique;
+  secBox.innerHTML='';
+  state.sections.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='sec';
+    d.innerHTML=`<div class="sec-head">
+        <input type="text" id="secname${i}" aria-label="Název části" placeholder="např. Sloka">
+        <button class="icon" type="button" data-up="${i}" title="Posunout nahoru" aria-label="Posunout nahoru">↑</button>
+        <button class="icon" type="button" data-del="${i}" title="Smazat část" aria-label="Smazat část">✕</button>
+      </div>
+      <input type="text" id="secchords${i}" aria-label="Akordy" placeholder="Ami G Dmi F" autocomplete="off" spellcheck="false">
+      <div class="chips" id="chips${i}"></div>`;
+    secBox.appendChild(d);
+    const n=d.querySelector('#secname'+i), c=d.querySelector('#secchords'+i);
+    n.value=s.name; c.value=s.chords;
+    n.addEventListener('input',()=>{s.name=n.value;changed()});
+    c.addEventListener('input',()=>{s.chords=c.value;renderChips(i);changed()});
+    renderChips(i);
+  });
+  renderEditing();
+}
+function renderEditing(){
+  const s=state.id&&db.songs.find(x=>x.id===state.id);
+  $('editing').textContent=s?'Upravuješ uloženou písničku – „Uložit“ ji přepíše.':'Nová písnička (zatím neuložená).';
+}
+function chipsHtml(chords){
+  return splitChords(chords).map(parseChord).filter(Boolean).map(p=>`<span class="chip ${p.bad?'bad':p.minor?'moll':'dur'}">${esc(p.bad?p.raw+' ?':p.name)}</span>`).join('');
+}
+function renderChips(i){$('chips'+i).innerHTML=chipsHtml(state.sections[i].chords)}
+secBox.addEventListener('click',e=>{
+  const del=e.target.closest('[data-del]'), up=e.target.closest('[data-up]');
+  if(del){state.sections.splice(+del.dataset.del,1);renderEditor();changed()}
+  if(up){const i=+up.dataset.up;if(i>0){const a=state.sections;[a[i-1],a[i]]=[a[i],a[i-1]];renderEditor();changed()}}
+});
+$('title').addEventListener('input',e=>{state.title=e.target.value;changed()});
+$('unique').addEventListener('change',e=>{state.unique=e.target.checked;changed()});
+$('addSec').addEventListener('click',()=>{state.sections.push({name:'Část '+(state.sections.length+1),chords:''});renderEditor();changed();$('secchords'+(state.sections.length-1)).focus()});
+$('addRef').addEventListener('click',()=>{state.sections.push({name:'Refrén',chords:''});renderEditor();changed();$('secchords'+(state.sections.length-1)).focus()});
+let raf=0;
+function changed(){lsSet(LS_DRAFT,state);cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>draw($('sheet'),4,state))}
+
+function newSong(){state={id:null,title:'',unique:false,sections:[{name:'Sloka',chords:''},{name:'Refrén',chords:''}]};renderEditor();changed();showView('editor');$('title').focus();setStatus('editStatus','')}
+$('newSong').addEventListener('click',newSong);
+$('newSong2').addEventListener('click',newSong);
+
+$('saveSong').addEventListener('click',async()=>{
+  const title=(state.title||'').trim();
+  if(!title){setStatus('editStatus','Doplň název písně.','err');$('title').focus();return}
+  if(!sheetData(state).length){setStatus('editStatus','Doplň aspoň jeden akord.','err');return}
+  const now=Date.now();
+  let song=state.id&&db.songs.find(s=>s.id===state.id);
+  if(song){Object.assign(song,{title,unique:!!state.unique,sections:clone(state.sections),updated:now})}
+  else{song={id:uid(),title,unique:!!state.unique,sections:clone(state.sections),created:now,updated:now};db.songs.push(song);state.id=song.id}
+  lsSet(LS_DRAFT,state);
+  const ok=await persist(); renderSongs(); renderEditing();
+  setStatus('editStatus',ok?'Uloženo: '+title+(cfg?' (JSONBin)':''):'Uloženo jen v tomto prohlížeči – JSONBin nedostupný.',ok?'ok':'err');
+});
+
+/* ================= karty písniček ================= */
+function renderSongs(){
+  $('songCount').textContent=db.songs.length;
+  const q=$('search').value.trim().toLowerCase();
+  const list=db.songs.slice().sort((a,b)=>a.title.localeCompare(b.title,'cs'))
+    .filter(s=>!q||s.title.toLowerCase().includes(q)||s.sections.some(x=>x.chords.toLowerCase().includes(q)));
+  $('empty').hidden=db.songs.length>0;
+  $('cards').innerHTML=list.map(s=>`
+    <article class="card" data-id="${esc(s.id)}">
+      <h3>${esc(s.title)}</h3>
+      ${s.sections.filter(x=>splitChords(x.chords).length).map(x=>`<div class="part"><b>${esc(x.name)}</b><div class="chips">${chipsHtml(x.chords)}</div></div>`).join('')}
+      <div class="meta">Upraveno ${esc(fmtDate(s.updated))}</div>
+      <div class="actions">
+        <button class="primary" type="button" data-act="open">Otevřít</button>
+        <button type="button" data-act="pdf">PDF</button>
+        <button type="button" data-act="copy">Kopie</button>
+        <button class="danger" type="button" data-act="del">Smazat</button>
+      </div>
+    </article>`).join('') || (db.songs.length?'<div class="small">Nic nenalezeno.</div>':'');
+}
+$('search').addEventListener('input',renderSongs);
+$('cards').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const id=b.closest('.card').dataset.id, s=db.songs.find(x=>x.id===id); if(!s) return;
+  const act=b.dataset.act;
+  if(act==='open'){state=clone(s);renderEditor();changed();showView('editor');setStatus('editStatus','');window.scrollTo(0,0)}
+  if(act==='pdf'){makePdf(s,'dbStatus')}
+  if(act==='copy'){const c=clone(s);c.id=uid();c.title=s.title+' (kopie)';c.created=c.updated=Date.now();db.songs.push(c);await persist();renderSongs()}
+  if(act==='del'){
+    if(b.dataset.confirm){deleted.add(id);db.songs=db.songs.filter(x=>x.id!==id);if(state.id===id){state.id=null;lsSet(LS_DRAFT,state)}await persist();renderSongs();renderEditing()}
+    else{b.dataset.confirm='1';b.textContent='Opravdu smazat?';setTimeout(()=>{if(b.isConnected){delete b.dataset.confirm;b.textContent='Smazat'}},3000)}
+  }
+});
+
+/* ================= záložky ================= */
+function showView(v){
+  const ed=v==='editor';
+  $('viewEditor').hidden=!ed; $('viewSongs').hidden=ed;
+  $('tabEditor').setAttribute('aria-selected',ed); $('tabSongs').setAttribute('aria-selected',!ed);
+  try{location.hash=ed?'':'pisnicky'}catch(e){}
+}
+$('tabEditor').addEventListener('click',()=>showView('editor'));
+$('tabSongs').addEventListener('click',()=>{renderSongs();showView('songs');
+  if(cfg&&!saving) loadRemote().then(r=>{db={version:1,songs:r.songs.filter(s=>!deleted.has(s.id))};lsSet(LS_DB,db);renderSongs()}).catch(()=>{});
+});
+
+/* ================= kreslení A4 (mm, S = px na mm) ================= */
+const COL={ink:'#1d2a4a',grey:'#555555',light:'#999999',rule:'#c9d6ee',dur:'#1f5fbf',moll:'#7a3db8',hl:'#7cc7f0',hld:'#2a8fc9'};
+const PT=0.3528;
+function sheetData(song){
+  return (song.sections||[]).map(s=>({name:(s.name||'').trim(),chords:splitChords(s.chords).map(parseChord).filter(p=>p&&!p.bad)})).filter(s=>s.chords.length);
+}
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+const DISP='"Bricolage Grotesque", Figtree, sans-serif';
+const font=(w,pt,fam)=>`${w} ${pt*PT}px ${fam||'Figtree, system-ui, sans-serif'}`;
+function draw(cv,S,song){
+  const W=210,H=297; cv.width=Math.round(W*S); cv.height=Math.round(H*S);
+  const c=cv.getContext('2d'); c.setTransform(S,0,0,S,0,0);
+  c.fillStyle='#fff'; c.fillRect(0,0,W,H); c.textBaseline='alphabetic';
+  const text=(s,x,y,al)=>{c.textAlign=al||'left';c.fillText(s,x,y)};
+  const m=14, secs=sheetData(song);
+  const title=(song.title||'').trim()||'Název písně';
+  c.fillStyle=COL.ink; let ts=34; c.font=font(800,ts,DISP);
+  while(c.measureText(title).width>W-2*m&&ts>16){ts--;c.font=font(800,ts,DISP)}
+  text(title,W/2,26,'center');
+  c.strokeStyle=COL.rule; c.lineWidth=1.2*PT; c.beginPath(); c.moveTo(W/2-30,31); c.lineTo(W/2+30,31); c.stroke();
+  if(!secs.length){c.fillStyle=COL.light;c.font=font(400,13);text('Doplň akordy',W/2,60,'center');return}
+  const labw=26, perLine=8, gapB=4, bh=11; let sy=44;
+  const bw=Math.min(22,(W-2*m-labw-(perLine-1)*gapB)/perLine);
+  secs.forEach(sec=>{
+    const n=sec.chords.length;
+    c.fillStyle=COL.grey; c.font=font(700,11);
+    let label=sec.name; if(c.measureText(label).width>labw-2){while(label&&c.measureText(label+'…').width>labw-2)label=label.slice(0,-1);label+='…'}
+    text(label,m,sy+bh/2+1.4);
+    sec.chords.forEach((ch,i)=>{
+      const li=Math.floor(i/perLine), ci=i%perLine, x=m+labw+ci*(bw+gapB), yy=sy+li*(bh+4);
+      c.fillStyle=ch.minor?COL.moll:COL.dur; roundRect(c,x,yy,bw,bh,2.5); c.fill();
+      c.fillStyle='#fff'; let fs=13; c.font=font(700,fs); while(c.measureText(ch.name).width>bw-2&&fs>7){fs--;c.font=font(700,fs)}
+      text(ch.name,x+bw/2,yy+bh/2+fs*PT*0.36,'center');
+      if(i<n-1&&ci<perLine-1){const ax=x+bw+gapB/2, ay=yy+bh/2; c.fillStyle=COL.light; c.beginPath(); c.moveTo(ax-1.2,ay-1.6); c.lineTo(ax+1.2,ay); c.lineTo(ax-1.2,ay+1.6); c.closePath(); c.fill()}
+    });
+    sy+=Math.ceil(n/perLine)*(bh+4)+3;
+  });
+  let groups=secs;
+  if(song.unique){const seen=new Set(),all=[];secs.forEach(s=>s.chords.forEach(ch=>{const k=ch.notes.join(',');if(!seen.has(k)){seen.add(k);all.push(ch)}}));groups=[{name:'Hmaty',chords:all,plain:true}]}
+  const gap=8, colw=(W-2*m-gap)/2, top=sy+6, bottom=12, head=9;
+  const rows=groups.reduce((a,g)=>a+Math.ceil(g.chords.length/2),0);
+  const rowh=(H-bottom-top-groups.length*head)/rows;
+  const kbh=Math.max(Math.min(rowh-16,48),8);
+  let yy=top;
+  groups.forEach(g=>{
+    const up=(g.name||'').toUpperCase();
+    c.fillStyle=COL.ink; c.font=font(700,13); text(up,m,yy+6);
+    const tw=c.measureText(up).width; c.strokeStyle=COL.rule; c.lineWidth=PT; c.beginPath(); c.moveTo(m+tw+(up?3:0),yy+4.8); c.lineTo(W-m,yy+4.8); c.stroke();
+    yy+=head;
+    g.chords.forEach((ch,i)=>{
+      const r=Math.floor(i/2), cl=i%2, cx=m+cl*(colw+gap), yt=yy+r*rowh;
+      const kbTop=yt+rowh-3-kbh, ly=kbTop-4, col=ch.minor?COL.moll:COL.dur;
+      if(!g.plain){c.fillStyle=col;c.beginPath();c.arc(cx+3.5,ly-2,3.5,0,Math.PI*2);c.fill();c.fillStyle='#fff';c.font=font(700,10);text(String(i+1),cx+3.5,ly-0.6,'center')}
+      c.fillStyle=col; c.font=font(800,17,DISP); text(ch.name,cx+(g.plain?0:9),ly+0.2);
+      c.fillStyle=COL.grey; c.font=font(500,10.5); text(ch.notes.map(n=>NAMES[n%12]).join(' – '),cx+colw,ly,'right');
+      keyboard(c,cx,kbTop,colw,kbh,new Set(ch.notes));
+    });
+    yy+=Math.ceil(g.chords.length/2)*rowh;
+  });
+}
+function keyboard(c,x,y,w,h,notes){
+  const ww=w/14, bw=ww*0.6, bh=h*0.62;
+  c.lineWidth=0.8*PT; c.strokeStyle='#000'; c.textAlign='center';
+  for(let o=0;o<2;o++) WHITE.forEach((s,i)=>{
+    const n=o*12+s, kx=x+(o*7+i)*ww, on=notes.has(n);
+    c.fillStyle=on?COL.hl:'#fff'; c.fillRect(kx,y,ww,h); c.strokeRect(kx,y,ww,h);
+    c.fillStyle='#000'; c.font=on?font(700,Math.min(9,h)):font(400,Math.min(6.5,h*0.75));
+    c.fillText(NAMES[s],kx+ww/2,y+h-2.2);
+  });
+  for(let o=0;o<2;o++) WHITE.forEach((s,i)=>{
+    if(s===4||s===11) return;
+    const n=o*12+s+1, kx=x+(o*7+i+1)*ww-bw/2, on=notes.has(n);
+    c.fillStyle=on?COL.hld:'#000'; c.fillRect(kx,y,bw,bh); c.strokeRect(kx,y,bw,bh);
+    if(on){c.fillStyle='#fff';c.font=font(700,Math.min(6.5,h*0.6));c.fillText(NAMES[s+1],kx+bw/2,y+bh-1.5)}
+  });
+  c.lineWidth=1.6*PT; c.strokeRect(x,y,w,h); c.textAlign='left';
+}
+
+/* ================= PDF ================= */
+function makePdf(song,statusId){
+  if(!window.jspdf){setStatus(statusId,'Knihovna pro PDF se nenačetla – zkontroluj internet.','err');return}
+  if(!sheetData(song).length){setStatus(statusId,'Nejdřív doplň nějaké akordy.','err');return}
+  try{
+    const cv=document.createElement('canvas'); draw(cv,9,song);
+    const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+    pdf.setProperties({title:(song.title||'Akordy')+' – akordy'});
+    pdf.addImage(cv.toDataURL('image/png'),'PNG',0,0,210,297,undefined,'FAST');
+    saveFile(safeName(song.title)+' – akordy.pdf',pdf.output('blob'));
+    setStatus(statusId,'PDF staženo: '+safeName(song.title)+'. Při tisku zvol 100 %.','ok');
+  }catch(e){setStatus(statusId,'PDF se nepodařilo vytvořit.','err')}
+}
+$('pdf').addEventListener('click',()=>makePdf(state,'pdfStatus'));
+
+/* ================= start ================= */
+renderEditor(); renderDb(); renderSongs(); draw($('sheet'),4,state);
+if(location.hash==='#pisnicky') showView('songs');
+if(cfg){ // načíst nejnovější data z JSONBin
+  setStatus('dbStatus','Načítám z JSONBin…');
+  loadRemote().then(r=>{db={version:1,songs:r.songs};lsSet(LS_DB,db);renderSongs();renderEditing();setStatus('dbStatus','Načteno z JSONBin.','ok')})
+    .catch(e=>setStatus('dbStatus','JSONBin nedostupný ('+e.message+'). Zobrazuji písničky uložené v tomto prohlížeči.','err'));
+}
+if(document.fonts){Promise.all([document.fonts.load('800 20px "Bricolage Grotesque"'),document.fonts.load('700 12px Figtree')]).then(()=>draw($('sheet'),4,state)).catch(()=>{})}
+</script>
+</body>
+</html>
