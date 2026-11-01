@@ -229,9 +229,9 @@ const safeName=s=>((s||'').trim().replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,' 
    Struktura: { version:1, songs:[ {id,title,unique,sections:[{name,chords}],created,updated} ] }
    Úložiště: JSONBin.io (když je připojen), jinak localStorage tohoto prohlížeče. */
 // ===== NASTAVENÍ JSONBin.io (napevno – návštěvníci nic nezadávají) =====
-const FIXED_KEY='';        // Access Key s právy Read + Update na bin níže
+const FIXED_KEY='$2a$10$.CMzVNclg23COJEf7RWvvuVZGFTH85ERFN2ccT3r2ck/pm1RaJY9C';        // Access Key s právy Read + Update na bin níže
 const FIXED_KEY_TYPE='access'; // 'access' nebo 'master'
-const FIXED_BIN='';        // Bin ID databáze písniček
+const FIXED_BIN='6ae71f61ffd5d160539d052a';        // Bin ID databáze písniček
 const API='https://api.jsonbin.io/v3/b';
 const LS_DB='piano_db', LS_CFG='piano_jsonbin', LS_DRAFT='piano_draft';
 let db=lsGet(LS_DB)||{version:1,songs:[]};
@@ -533,7 +533,12 @@ renderEditor(); renderDb(); renderSongs(); draw($('sheet'),4,state);
 if(location.hash==='#pisnicky') showView('songs');
 if(cfg){ // načíst nejnovější data z JSONBin
   setStatus('dbStatus','Načítám z JSONBin…');
-  loadRemote().then(r=>{db={version:1,songs:r.songs};lsSet(LS_DB,db);renderSongs();renderEditing();setStatus('dbStatus','Načteno z JSONBin.','ok')})
+  loadRemote().then(async r=>{
+    // jednorázově přenést písničky uložené dřív jen v tomto prohlížeči
+    const migKey='piano_migrated_'+cfg.bin, local=db.songs.filter(s=>!r.songs.find(x=>x.id===s.id));
+    db={version:1,songs:r.songs};
+    if(!lsGet(migKey)&&local.length){db.songs=mergeSongs(db.songs,local);await persist()}
+    lsSet(migKey,true);lsSet(LS_DB,db);renderSongs();renderEditing();setStatus('dbStatus','Načteno z JSONBin.','ok')})
     .catch(e=>setStatus('dbStatus','JSONBin nedostupný ('+e.message+'). Zobrazuji písničky uložené v tomto prohlížeči.','err'));
 }
 if(document.fonts){Promise.all([document.fonts.load('800 20px "Bricolage Grotesque"'),document.fonts.load('700 12px Figtree')]).then(()=>draw($('sheet'),4,state)).catch(()=>{})}
